@@ -58,6 +58,23 @@ the VM. Forward what you need:
 Then `ragenta-backend`'s `.env` keeps `localhost` URLs. See
 [`dev-infra.md`](dev-infra.md).
 
+## Two things that will confuse you once
+
+The clone is owned by `ragenta-deploy`, so `git` run by the admin account refuses it with
+`detected dubious ownership`. Reading the deploy's history is legitimate; grant it once per admin:
+
+```bash
+git config --global --add safe.directory /srv/ragenta-deployment
+```
+
+The `.env` files are 0600 and owned by `ragenta-deploy`, so `docker compose` as the admin account
+fails with `permission denied` before it prints anything. Run compose as the account that owns the
+stack instead of loosening the file:
+
+```bash
+sudo -u ragenta-deploy -H bash -c "cd /srv/ragenta-deployment/environments/staging && docker compose ps"
+```
+
 ## Running a script on the VM from Windows
 
 PowerShell adds a BOM and CRLF when piping text into `ssh`, and `bash` fails on
