@@ -17,7 +17,7 @@ name: ragenta-production
 
 services:
   api:
-    image: ghcr.io/trantuananh-17/ragenta-backend:${IMAGE_TAG}
+    image: ghcr.io/trantuananh-17/ragenta-backend:${IMAGE_TAG_BACKEND}
     restart: unless-stopped
     # Optional so the file still renders for validation on a machine that holds
     # no secrets. A deploy refuses outright when .env is missing, so a
@@ -53,7 +53,7 @@ services:
       start_period: 20s
 
   worker:
-    image: ghcr.io/trantuananh-17/ragenta-backend:${IMAGE_TAG}
+    image: ghcr.io/trantuananh-17/ragenta-backend:${IMAGE_TAG_BACKEND}
     restart: unless-stopped
     command: ["node", "dist/main.worker.js"]
     env_file:
