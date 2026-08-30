@@ -27,7 +27,24 @@ sandbox. Treat both keys as privileged.
 │   └── .env                      0600, ragenta-deploy — every dev password
 └── environments/staging/         the released image + its own datastores
     └── .env                      0600, ragenta-deploy
-/etc/nginx/sites-enabled/         ragenta-staging -> the API on 127.0.0.1:8080
+/etc/nginx/sites-enabled/
+├── ragenta-staging              api.<domain> -> 127.0.0.1:8080, TLS
+└── ragenta-default-deny         everything else -> 444
+/etc/letsencrypt/                certificates; certbot owns this, nothing else
+└── renewal-hooks/deploy/        reload-nginx.sh — without it a renewed
+                                 certificate sits on disk unserved
+```
+
+nginx routes by the `Host` header, so one address serves every hostname. Each
+app gets its own `server` block proxying to its own loopback port; the ports are
+reserved in `environments/staging/docker-compose.yml` as each app lands:
+
+```text
+127.0.0.1:8080   api          ragenta-backend, start:api
+127.0.0.1:8081   landingpage  reserved
+127.0.0.1:8082   app          reserved
+127.0.0.1:8083   admin        reserved
+(no port)        worker       a BullMQ consumer — nothing listens
 ```
 
 It lives in `/srv`, not in anyone's home directory, so no person's account owns
