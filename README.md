@@ -8,15 +8,26 @@ No Kubernetes, Helm or Argo CD (ADR-008).
 ├── check.yml              gate on every PR and push to main
 └── deploy-dev-infra.yml   applies environments/dev-infra to the VM
 environments/
-└── dev-infra/             shared development datastores on one VM
+├── dev-infra/             shared development datastores on one VM
+└── staging/               released backend image + its own datastores
 scripts/
 └── dev-infra-tunnel.ps1
 docs/
 └── dev-infra.md           runbook
 ```
 
-`environments/staging` and `environments/production` — the stacks that run the released
-`ghcr.io/…/ragenta-backend:vX.Y.Z` images — do not exist yet.
+`environments/production` does not exist yet.
+
+## Staging
+
+`environments/staging` runs the released `ghcr.io/trantuananh-17/ragenta-backend:vX.Y.Z` image as
+two services — `api` and `worker`, the same image with different commands — alongside its own
+PostgreSQL, Redis, MinIO and Qdrant. Those datastores publish no host ports, so the stack is
+reachable only through the API and cannot be confused with another environment's data.
+
+`ragenta-backend`'s release pipeline drives it: a `vX.Y.Zrc*` tag builds an image, rewrites
+`IMAGE_TAG` in the VM's `.env`, runs `docker compose run --rm api node dist/db/migrate.js`, then
+`docker compose up -d`. Rolling back is re-running that workflow with the previous tag.
 
 ## Shared development infrastructure
 

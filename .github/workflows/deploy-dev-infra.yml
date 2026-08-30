@@ -54,7 +54,6 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           command_timeout: 15m
           envs: DEPLOY_PATH
-          script_stops: true
           script: |
             set -euo pipefail
             cd "$DEPLOY_PATH"
@@ -86,7 +85,6 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           envs: DEPLOY_PATH
-          script_stops: true
           script: |
             set -euo pipefail
             cd "$DEPLOY_PATH/environments/dev-infra"
