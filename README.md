@@ -17,7 +17,8 @@ proxy/
 scripts/
 └── dev-infra-tunnel.ps1
 docs/
-└── dev-infra.md           runbook
+├── dev-infra.md           runbook
+└── vm-access.md           who logs in as what, and how to rotate the deploy key
 ```
 
 ## Staging and production
@@ -48,8 +49,8 @@ developer has to keep a local Docker stack running. It runs no application conta
 worker still run from `ragenta-backend` on the developer machine.
 
 ```bash
-git clone <this repo> ~/ragenta-deployment
-cd ~/ragenta-deployment/environments/dev-infra
+git clone <this repo> /srv/ragenta-deployment
+cd /srv/ragenta-deployment/environments/dev-infra
 cp .env.example .env      # fill every blank
 docker compose up -d
 ```
@@ -57,11 +58,12 @@ docker compose up -d
 Ports bind to `127.0.0.1` on the VM by default and are reached through an SSH tunnel:
 
 ```powershell
-.\scripts\dev-infra-tunnel.ps1 -VmHost <vm-ip> -User ubuntu
+.\scripts\dev-infra-tunnel.ps1 -VmHost <vm-ip> -User <admin user>
 ```
 
 Full instructions, the direct-IP alternative and its firewall requirements, migrations, backup
-and restore: [`docs/dev-infra.md`](docs/dev-infra.md).
+and restore: [`docs/dev-infra.md`](docs/dev-infra.md). Who logs in as what, and how to rotate the
+deploy key: [`docs/vm-access.md`](docs/vm-access.md).
 
 ## CI
 

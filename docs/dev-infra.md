@@ -19,10 +19,15 @@ sudo usermod -aG docker $USER   # log out and back in
 
 ## 2. Clone and configure
 
+The clone lives in `/srv`, not a home directory, and is owned by the
+`ragenta-deploy` account that GitHub Actions logs in as — see
+[`vm-access.md`](vm-access.md) for why the deploy identity is separate.
+
 ```bash
-git clone <ragenta-deployment remote> ~/ragenta-deployment
-cd ~/ragenta-deployment/environments/dev-infra
-cp .env.example .env
+sudo git clone <ragenta-deployment remote> /srv/ragenta-deployment
+sudo chown -R ragenta-deploy:ragenta-deploy /srv/ragenta-deployment
+cd /srv/ragenta-deployment/environments/dev-infra
+sudo -u ragenta-deploy cp .env.example .env
 ```
 
 Fill every blank in `.env`. Generate each secret separately:
@@ -56,7 +61,7 @@ reachable from the internet. The dev machine forwards them over SSH:
 
 ```powershell
 # from ragenta-deployment on Windows
-.\scripts\dev-infra-tunnel.ps1 -VmHost <vm-ip> -User ubuntu
+.\scripts\dev-infra-tunnel.ps1 -VmHost <vm-ip> -User <admin user>
 ```
 
 Equivalent raw command on any platform:
