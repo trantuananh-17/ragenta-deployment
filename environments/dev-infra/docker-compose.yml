@@ -47,7 +47,7 @@ services:
   # Not consumed by the application yet — the ingestion module will be the first
   # client. Kept here so the shared box is ready when it lands.
   minio:
-    image: minio/minio:latest
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
     restart: unless-stopped
     command: ["server", "/data", "--console-address", ":9001"]
     environment:
@@ -60,7 +60,7 @@ services:
       - minio-data:/data
 
   qdrant:
-    image: qdrant/qdrant:latest
+    image: qdrant/qdrant:v1.19.0
     restart: unless-stopped
     environment:
       QDRANT__SERVICE__API_KEY: ${QDRANT_API_KEY}

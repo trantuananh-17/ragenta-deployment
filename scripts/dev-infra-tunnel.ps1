@@ -10,7 +10,7 @@
     Runs in the foreground; press Ctrl+C to close the tunnel.
 
 .EXAMPLE
-    .\dev-infra-tunnel.ps1 -VmHost 203.0.113.10 -User ubuntu
+    .\dev-infra-tunnel.ps1 -VmHost 203.0.113.10 -User <admin user>
 
 .EXAMPLE
     .\dev-infra-tunnel.ps1 -VmHost ragenta-dev -Ports 5432,6379

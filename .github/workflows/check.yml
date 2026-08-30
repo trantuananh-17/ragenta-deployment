@@ -61,6 +61,19 @@ jobs:
               fi
             done
 
+            # An environment runs an exact version (ADR-009). `latest` moves
+            # under you, and because a deploy runs `docker compose pull`, an
+            # unpinned datastore would upgrade itself mid-release with nobody
+            # asking for it.
+            moving=$(grep -nE '^[[:space:]]*image:.*:latest[[:space:]]*$' "$dir/docker-compose.yml" || true)
+            untagged=$(grep -nE '^[[:space:]]*image:[[:space:]]*[^[:space:]:]+[[:space:]]*$' "$dir/docker-compose.yml" || true)
+            if [ -n "$moving$untagged" ]; then
+              echo "::error file=${dir}docker-compose.yml::$name has an unpinned image. Use an exact version, not :latest and not a bare name."
+              [ -n "$moving" ] && echo "$moving"
+              [ -n "$untagged" ] && echo "$untagged"
+              status=1
+            fi
+
             # Fill the blanks so interpolation can resolve. This validates the
             # shape of the file; the values are throwaway.
             sed -E 's/^([A-Z_][A-Z0-9_]*)=$/\1=ci-placeholder/' "$dir/.env.example" > "/tmp/${name}.env"

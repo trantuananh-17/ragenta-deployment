@@ -141,7 +141,8 @@ gunzip -c ~/ragenta-<date>.sql.gz | docker compose exec -T postgres psql -U rage
 
 ## Known limitations
 
-- Images are unpinned (`latest` for MinIO and Qdrant). Pin them to the digests the VM is actually
-  running once the ingestion module depends on their behaviour.
+- Image versions are pinned to what this VM was verified running, and `check.yml` fails the build
+  if anything drifts back to `:latest`. Upgrading one is a deliberate commit, not a side effect of
+  the next deploy's `docker compose pull`.
 - No automated backups. `pg_dump` above is manual; add a cron job when the data starts mattering.
 - No TLS on any of these ports. That is exactly why the default is loopback plus an SSH tunnel.
