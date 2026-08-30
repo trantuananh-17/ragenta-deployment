@@ -1,0 +1,119 @@
+# Applies environments/dev-infra to the shared development VM.
+#
+# The VM holds a clone of this repository plus its own .env; this workflow pulls
+# the new configuration and reconciles the containers, so a Compose change does
+# not require anyone to SSH in by hand.
+#
+# Configuration comes from the GitHub Environment `dev-infra` (ADR-010 keeps
+# every environment's host and secrets separate):
+#
+#   secrets   SSH_HOST   SSH_USER   SSH_KEY   (private key, no passphrase)
+#   vars      DEPLOY_PATH                     (the clone directory on the VM)
+#
+# Until SSH_HOST is set the run self-skips with a notice, so merging to main
+# works before any VM exists.
+name: Deploy dev-infra
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "environments/dev-infra/**"
+      - ".github/workflows/deploy-dev-infra.yml"
+  workflow_dispatch:
+
+# Two overlapping runs would fight over the same containers.
+concurrency:
+  group: deploy-dev-infra
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Apply to the dev-infra VM
+    runs-on: ubuntu-latest
+    environment: dev-infra
+    steps:
+      - name: Is the VM wired up?
+        id: target
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+        run: |
+          if [ -z "$SSH_HOST" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No SSH_HOST configured for 'dev-infra'. Nothing to apply."
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Apply over SSH
+        if: steps.target.outputs.ready == 'true'
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          command_timeout: 15m
+          envs: DEPLOY_PATH
+          script_stops: true
+          script: |
+            set -euo pipefail
+            cd "$DEPLOY_PATH"
+
+            # The .env on the VM holds every password for this stack. Refuse
+            # rather than start containers with unresolved variables.
+            if [ ! -f environments/dev-infra/.env ]; then
+              echo "::error::No environments/dev-infra/.env in $DEPLOY_PATH. Provision the VM before deploying."
+              exit 1
+            fi
+
+            # --ff-only, never a reset: if the VM's clone has diverged, someone
+            # edited it in place and that work is not ours to throw away.
+            git fetch --prune origin
+            git pull --ff-only origin main
+
+            cd environments/dev-infra
+            docker compose pull
+            docker compose up -d --remove-orphans
+            docker compose ps
+        env:
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+
+      - name: Health check
+        if: steps.target.outputs.ready == 'true'
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          envs: DEPLOY_PATH
+          script_stops: true
+          script: |
+            set -euo pipefail
+            cd "$DEPLOY_PATH/environments/dev-infra"
+
+            for attempt in $(seq 1 10); do
+              if docker compose exec -T postgres pg_isready > /dev/null 2>&1 \
+                 && docker compose exec -T redis sh -c 'redis-cli -a "$REDIS_PASSWORD" ping' 2>/dev/null | grep -q PONG; then
+                echo "PostgreSQL and Redis answered after ${attempt} attempt(s)."
+                exit 0
+              fi
+              sleep 3
+            done
+
+            echo "::error::PostgreSQL or Redis did not come back. Check 'docker compose logs'."
+            docker compose ps
+            exit 1
+        env:
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+
+      - name: Summary
+        run: |
+          {
+            echo "### dev-infra"
+            echo
+            echo "Commit: \`${{ github.sha }}\`"
+            if [ "${{ steps.target.outputs.ready }}" != "true" ]; then
+              echo
+              echo "Skipped — the \`dev-infra\` environment has no \`SSH_HOST\` secret yet."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

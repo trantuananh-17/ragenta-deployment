@@ -1,0 +1,88 @@
+# Quality gate for this repository.
+#
+# There is nothing to compile here — the deliverable is configuration, so the
+# checks are: no real secret ever reaches a commit, every Compose file still
+# renders, every variable it interpolates is documented in the matching
+# .env.example, and the operator scripts parse.
+name: Check
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: check-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Only .env.example belongs in Git. A real .env holds every password for an
+      # environment, and once committed it is in the history for good.
+      - name: No real .env is tracked
+        run: |
+          leaked=$(git ls-files | grep -E '(^|/)\.env($|\.)' | grep -v '\.env\.example$' || true)
+          if [ -n "$leaked" ]; then
+            echo "::error::These files must not be committed:"
+            echo "$leaked"
+            exit 1
+          fi
+
+      - name: Compose files render and .env.example is complete
+        run: |
+          set -uo pipefail
+          status=0
+
+          for dir in environments/*/; do
+            name=$(basename "$dir")
+            [ -f "$dir/docker-compose.yml" ] || continue
+
+            if [ ! -f "$dir/.env.example" ]; then
+              echo "::error::$name has a compose file but no .env.example."
+              status=1
+              continue
+            fi
+
+            # `$${VAR}` is escaped on purpose — it is resolved inside the
+            # container, not by Compose — so drop those before collecting the
+            # variables an operator actually has to supply.
+            used=$(sed 's/\$\${[^}]*}//g' "$dir/docker-compose.yml" \
+                   | grep -oE '\$\{[A-Z_][A-Z0-9_]*' | cut -c3- | sort -u || true)
+
+            for var in $used; do
+              if ! grep -qE "^${var}=" "$dir/.env.example"; then
+                echo "::error file=${dir}.env.example::$var is used by $name/docker-compose.yml but is not documented in .env.example."
+                status=1
+              fi
+            done
+
+            # Fill the blanks so interpolation can resolve. This validates the
+            # shape of the file; the values are throwaway.
+            sed -E 's/^([A-Z_][A-Z0-9_]*)=$/\1=ci-placeholder/' "$dir/.env.example" > "/tmp/${name}.env"
+
+            if ! docker compose --env-file "/tmp/${name}.env" -f "$dir/docker-compose.yml" config -q; then
+              echo "::error::$name/docker-compose.yml failed to render."
+              status=1
+            fi
+          done
+
+          exit $status
+
+      - name: Operator scripts parse
+        shell: pwsh
+        run: |
+          $failed = $false
+          foreach ($file in Get-ChildItem -Recurse -File -Filter *.ps1) {
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$null, [ref]$errors) | Out-Null
+            foreach ($e in $errors) {
+              Write-Host "::error file=$($file.FullName)::$($e.Message)"
+              $failed = $true
+            }
+          }
+          if ($failed) { exit 1 }
