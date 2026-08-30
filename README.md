@@ -9,25 +9,37 @@ No Kubernetes, Helm or Argo CD (ADR-008).
 └── deploy-dev-infra.yml   applies environments/dev-infra to the VM
 environments/
 ├── dev-infra/             shared development datastores on one VM
-└── staging/               released backend image + its own datastores
+├── staging/               released backend image + its own datastores
+└── production/            same shape as staging, its own machine and secrets
+proxy/
+├── staging.conf           nginx in front of the staging API
+└── production.conf        nginx in front of the production API
 scripts/
 └── dev-infra-tunnel.ps1
 docs/
 └── dev-infra.md           runbook
 ```
 
-`environments/production` does not exist yet.
-
-## Staging
+## Staging and production
 
 `environments/staging` runs the released `ghcr.io/trantuananh-17/ragenta-backend:vX.Y.Z` image as
 two services — `api` and `worker`, the same image with different commands — alongside its own
 PostgreSQL, Redis, MinIO and Qdrant. Those datastores publish no host ports, so the stack is
 reachable only through the API and cannot be confused with another environment's data.
 
-`ragenta-backend`'s release pipeline drives it: a `vX.Y.Zrc*` tag builds an image, rewrites
-`IMAGE_TAG` in the VM's `.env`, runs `docker compose run --rm api node dist/db/migrate.js`, then
-`docker compose up -d`. Rolling back is re-running that workflow with the previous tag.
+`environments/production` is the same file with production defaults in its `.env.example` — docs
+off, its own URLs, and a blank `IMAGE_TAG` because nothing has been released to it. The two compose
+files are deliberately identical in shape: a difference between them is a difference that would
+only be discovered in production.
+
+`ragenta-backend`'s release pipeline drives both: a `vX.Y.Z` tag (or `vX.Y.Zrc*` for staging)
+builds an image, rewrites `IMAGE_TAG` in the VM's `.env`, runs
+`docker compose run --rm api node dist/db/migrate.js`, then `docker compose up -d`. Rolling back is
+re-running `deploy.yml` with the previous tag.
+
+Each environment gets its own machine, secrets and domain (ADR-010). If two ever share a machine,
+they need different `API_PORT` values and the second one needs a `HEALTH_URL` variable on its
+GitHub Environment — the deploy's health check defaults to port 8080.
 
 ## Shared development infrastructure
 
