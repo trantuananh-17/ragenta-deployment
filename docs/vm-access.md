@@ -28,8 +28,9 @@ sandbox. Treat both keys as privileged.
 └── environments/staging/         the released image + its own datastores
     └── .env                      0600, ragenta-deploy
 /etc/nginx/sites-enabled/
-├── ragenta-staging              api.<domain> -> 127.0.0.1:8080, TLS
-└── ragenta-default-deny         everything else -> 444
+├── ragenta-staging              api.<domain>     -> 127.0.0.1:8080, TLS
+│                                ragenta.<domain> -> 127.0.0.1:8081, TLS
+└── ragenta-default-deny         everything else  -> 444
 /etc/letsencrypt/                certificates; certbot owns this, nothing else
 └── renewal-hooks/deploy/        reload-nginx.sh — without it a renewed
                                  certificate sits on disk unserved
@@ -41,7 +42,7 @@ reserved in `environments/staging/docker-compose.yml` as each app lands:
 
 ```text
 127.0.0.1:8080   api          ragenta-backend, start:api
-127.0.0.1:8081   landingpage  reserved
+127.0.0.1:8081   landing      ragenta-landing-page
 127.0.0.1:8082   app          reserved
 127.0.0.1:8083   admin        reserved
 (no port)        worker       a BullMQ consumer — nothing listens

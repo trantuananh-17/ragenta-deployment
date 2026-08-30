@@ -68,6 +68,56 @@ services:
       redis:
         condition: service_healthy
 
+  # The marketing site. It talks to nothing in this stack — no database, no
+  # Redis, no queue — so it has no depends_on and starts even when the rest of
+  # the environment is down.
+  landing:
+    image: ghcr.io/trantuananh-17/ragenta-landing-page:${IMAGE_TAG_LANDING_PAGE}
+    restart: unless-stopped
+    # Deliberately no env_file. api and worker read the whole .env because they
+    # need most of it; a public marketing site needs four values and no secret.
+    # Handing it the shared file would put the database password, the Stripe
+    # key and every provider credential inside the most exposed container here.
+    environment:
+      NODE_ENV: production
+      # The image already defaults to 8020, but .env sets PORT=8080 for the API
+      # and Compose would pass that through if this were ever given an env_file.
+      # Stating it here keeps the published port below and the port the server
+      # binds from drifting apart.
+      PORT: 8020
+      HOSTNAME: 0.0.0.0
+      # Canonical, hreflang and OG URLs are built from this, so a wrong value
+      # is not a broken page — it is a page that indexes under the wrong host.
+      SITE_URL: ${SITE_URL}
+      # Where the signup CTAs go. Reuses the backend's variable rather than
+      # adding a second name for the same thing, which is how the two end up
+      # disagreeing about where the app lives.
+      APP_URL: ${APP_BASE_URL}
+      # Unset means /api/contact answers 503 and the form shows an error.
+      CONTACT_WEBHOOK_URL: ${CONTACT_WEBHOOK_URL}
+      # Unset means PostHog is not loaded at all.
+      POSTHOG_KEY: ${POSTHOG_KEY}
+      POSTHOG_HOST: ${POSTHOG_HOST}
+      # Unset means the site serves its bundled content fixtures.
+      RAGENTA_CONTENT_API_URL: ${RAGENTA_CONTENT_API_URL}
+    ports:
+      - "${LANDING_BIND}:${LANDING_PORT}:8020"
+    healthcheck:
+      # node's global fetch — the runtime image has no curl or wget. /api/health
+      # rather than /health: the site's locale middleware redirects a bare
+      # /health into the [lang] router, which 404s.
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8020/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
   postgres:
     image: postgres:17-alpine
     restart: unless-stopped

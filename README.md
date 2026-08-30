@@ -23,20 +23,28 @@ docs/
 
 ## Staging and production
 
-`environments/staging` runs the released `ghcr.io/trantuananh-17/ragenta-backend:vX.Y.Z` image as
-two services — `api` and `worker`, the same image with different commands — alongside its own
-PostgreSQL, Redis, MinIO and Qdrant. Those datastores publish no host ports, so the stack is
-reachable only through the API and cannot be confused with another environment's data.
+`environments/staging` runs two deployables that release independently. `ragenta-backend` supplies
+`api` and `worker` — the same image with different commands — and `ragenta-landing-page` supplies
+`landing`. Alongside them sit this environment's own PostgreSQL, Redis, MinIO and Qdrant, which
+publish no host ports, so the datastores are reachable only from inside the stack and cannot be
+confused with another environment's data.
+
+`landing` gets an explicit `environment:` block rather than the shared `env_file`. It is the most
+exposed container in the stack and needs four public values; giving it the whole `.env` would hand
+a marketing site the database password, the Stripe key and every provider credential.
 
 `environments/production` is the same file with production defaults in its `.env.example` — docs
 off, its own URLs, and a blank `IMAGE_TAG` because nothing has been released to it. The two compose
 files are deliberately identical in shape: a difference between them is a difference that would
 only be discovered in production.
 
-`ragenta-backend`'s release pipeline drives both: a `vX.Y.Z` tag (or `vX.Y.Zrc*` for staging)
-builds an image, rewrites `IMAGE_TAG` in the VM's `.env`, runs
-`docker compose run --rm api node dist/db/migrate.js`, then `docker compose up -d`. Rolling back is
-re-running `deploy.yml` with the previous tag.
+Each application repository drives its own releases: a `vX.Y.Z` tag (or `vX.Y.Zrc*` for staging)
+builds an image, rewrites **only that repository's** `IMAGE_TAG_*` line in the VM's `.env`, and
+brings up only the services it owns. `ragenta-backend` pins `IMAGE_TAG_BACKEND`, runs
+`docker compose run --rm api node dist/db/migrate.js` first because it owns the schema, and
+recreates `api worker`. `ragenta-landing-page` pins `IMAGE_TAG_LANDING_PAGE`, runs no migration,
+and recreates `landing`. Neither can move the other's version. Rolling back is re-running that
+repository's `deploy.yml` with the previous tag.
 
 Each environment gets its own machine, secrets and domain (ADR-010). If two ever share a machine,
 they need different `API_PORT` values and the second one needs a `HEALTH_URL` variable on its
