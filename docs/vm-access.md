@@ -66,6 +66,36 @@ ssh -i ~/.ssh/ragenta-deploy ragenta-deploy@<host>
 Accept the host key on first use only after checking the fingerprint against the
 one recorded for this VM.
 
+## Adding a hostname
+
+A new hostname cannot get its certificate through `proxy/staging.conf`: that file
+references a certificate it does not have yet, so `nginx -t` fails before the
+ACME challenge can be answered. Serve the challenge from a throwaway vhost first.
+
+```bash
+sudo tee /etc/nginx/sites-available/ragenta-acme >/dev/null <<'EOF'
+server {
+    listen 80;
+    server_name <new hostname>;
+    location /.well-known/acme-challenge/ { root /var/www/certbot; }
+    location / { return 404; }
+}
+EOF
+sudo ln -sfn /etc/nginx/sites-available/ragenta-acme /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+
+sudo certbot certonly --webroot -w /var/www/certbot --non-interactive --agree-tos -d <new hostname>
+
+sudo cp /srv/ragenta-deployment/proxy/staging.conf /etc/nginx/sites-available/ragenta-staging
+sudo rm -f /etc/nginx/sites-enabled/ragenta-acme /etc/nginx/sites-available/ragenta-acme
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+The DNS A record has to exist first — `--webroot` resolves the name it is
+issuing for. Renewal needs no throwaway: the real vhost keeps its own
+`/.well-known/acme-challenge/` location on port 80 forever, which is why that
+block must never be removed.
+
 ## Reaching the datastores from a developer machine
 
 Nothing but SSH is open to the internet; every datastore binds `127.0.0.1` on
