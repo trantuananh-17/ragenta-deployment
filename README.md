@@ -12,8 +12,9 @@ environments/
 ├── staging/               released backend image + its own datastores
 └── production/            same shape as staging, its own machine and secrets
 proxy/
-├── staging.conf           nginx in front of the staging API
-└── production.conf        nginx in front of the production API
+├── staging.conf           staging vhosts: staging-<repo>.ragenta.cloud -> loopback ports
+├── production.conf        the same shape without the prefix; landing is the apex
+└── default-deny.conf      444 for any host we do not serve
 scripts/
 └── dev-infra-tunnel.ps1
 docs/
@@ -46,9 +47,29 @@ recreates `api worker`. `ragenta-landing-page` pins `IMAGE_TAG_LANDING_PAGE`, ru
 and recreates `landing`. Neither can move the other's version. Rolling back is re-running that
 repository's `deploy.yml` with the previous tag.
 
-Each environment gets its own machine, secrets and domain (ADR-010). If two ever share a machine,
-they need different `API_PORT` values and the second one needs a `HEALTH_URL` variable on its
-GitHub Environment — the deploy's health check defaults to port 8080.
+## Hostnames
+
+One rule, both environments. Staging is `staging-<repository name>.ragenta.cloud`; production is
+the same name without the prefix; and the marketing site in production is the apex, because nobody
+types a repository name to reach a home page.
+
+| Repository | Staging | Production |
+| --- | --- | --- |
+| `ragenta-landing-page` | `staging-ragenta-landing-page.ragenta.cloud` | `ragenta.cloud` (+ `www` redirect) |
+| `ragenta-backend` (api) | `staging-ragenta-backend.ragenta.cloud` | `ragenta-backend.ragenta.cloud` |
+| `ragenta-content-backend` | `staging-ragenta-content-backend.ragenta.cloud` | `ragenta-content-backend.ragenta.cloud` |
+| `ragenta-frontend` | `staging-ragenta-frontend.ragenta.cloud` | `ragenta-frontend.ragenta.cloud` |
+| `ragenta-admin-frontend` | `staging-ragenta-admin-frontend.ragenta.cloud` | `ragenta-admin-frontend.ragenta.cloud` |
+
+Each environment still gets its own machine and its own secrets (ADR-010), but they now share one
+registrable domain, and that costs two things. `AUTH_COOKIE_DOMAIN` stays **empty** in both — the
+only value spanning an environment's own hostnames is `ragenta.cloud`, which spans the other
+environment too. And neither service carries a `*.ragenta.cloud` CORS default any more, because
+that pattern matches the other environment's origins; `TRUSTED_ORIGINS` lists exact hostnames.
+
+If two environments ever share a machine, they need different `API_PORT` values and the second one
+needs a `HEALTH_URL` variable on its GitHub Environment — the deploy's health check defaults to
+port 8080.
 
 ## Shared development infrastructure
 
