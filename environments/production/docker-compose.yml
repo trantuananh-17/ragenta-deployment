@@ -68,6 +68,56 @@ services:
       redis:
         condition: service_healthy
 
+  # The marketing site's content API. Public reads for ragenta-landing-page,
+  # plus an admin surface for editing.
+  #
+  # No env_file, for the same reason the landing page has none: it needs the
+  # database and little else, and handing it the shared file would put the
+  # Stripe key, every provider credential and BETTER_AUTH_SECRET inside a
+  # service that has no use for them.
+  #
+  # It shares this stack's postgres with the api. That is deliberate and narrow
+  # — it owns only the content_* tables there and keeps its own migration
+  # ledger. See its README.
+  content:
+    image: ghcr.io/trantuananh-17/ragenta-content-backend:${IMAGE_TAG_CONTENT_BACKEND}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 8084
+      # Same connection string the api builds, for the same reason: an operator
+      # editing it by hand is how a stack ends up on another environment's data.
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      # Where it introspects the caller's Better Auth session. The PUBLIC api
+      # URL, not http://api:8080 — Better Auth builds and checks against its own
+      # baseURL, and reaching it under a different host is the kind of thing
+      # that works until it silently does not.
+      RAGENTA_API_URL: ${API_BASE_URL}
+      # Only used as the `servers` entry in /v1/docs.
+      API_BASE_URL: ${CONTENT_PUBLIC_URL}
+      DOCS_ENABLED: ${DOCS_ENABLED}
+      # The same admin list the api uses — a platform admin there is one here.
+      ADMIN_USER_IDS: ${ADMIN_USER_IDS}
+      TRUSTED_ORIGINS: ${TRUSTED_ORIGINS}
+    ports:
+      - "${CONTENT_BIND}:${CONTENT_PORT}:8084"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      # node's global fetch — the runtime image has no curl or wget.
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8084/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
   # The marketing site. It talks to nothing in this stack — no database, no
   # Redis, no queue — so it has no depends_on and starts even when the rest of
   # the environment is down.
