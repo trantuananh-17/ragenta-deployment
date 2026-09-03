@@ -28,10 +28,10 @@ sandbox. Treat both keys as privileged.
 └── environments/staging/         the released image + its own datastores
     └── .env                      0600, ragenta-deploy
 /etc/nginx/sites-enabled/
-├── ragenta-staging              staging-ragenta-backend.ragenta.cloud        -> 127.0.0.1:8080, TLS
-│                                staging-ragenta-landing-page.ragenta.cloud   -> 127.0.0.1:8081, TLS
-│                                staging-ragenta-content-backend.ragenta.cloud -> 127.0.0.1:8084, TLS
-└── ragenta-default-deny         everything else                              -> 444
+├── ragenta-staging              staging-backend.ragenta.cloud         -> 127.0.0.1:8080, TLS
+│                                staging.ragenta.cloud                 -> 127.0.0.1:8081, TLS
+│                                staging-content-backend.ragenta.cloud -> 127.0.0.1:8084, TLS
+└── ragenta-default-deny         everything else                       -> 444
 /etc/letsencrypt/                certificates; certbot owns this, nothing else
 └── renewal-hooks/deploy/        reload-nginx.sh — without it a renewed
                                  certificate sits on disk unserved

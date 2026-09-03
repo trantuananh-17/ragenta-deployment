@@ -12,7 +12,7 @@ environments/
 ├── staging/               released backend image + its own datastores
 └── production/            same shape as staging, its own machine and secrets
 proxy/
-├── staging.conf           staging vhosts: staging-<repo>.ragenta.cloud -> loopback ports
+├── staging.conf           staging vhosts: staging[-<name>].ragenta.cloud -> loopback ports
 ├── production.conf        the same shape without the prefix; landing is the apex
 └── default-deny.conf      444 for any host we do not serve
 scripts/
@@ -49,17 +49,18 @@ repository's `deploy.yml` with the previous tag.
 
 ## Hostnames
 
-One rule, both environments. Staging is `staging-<repository name>.ragenta.cloud`; production is
-the same name without the prefix; and the marketing site in production is the apex, because nobody
-types a repository name to reach a home page.
+One rule, both environments. The hostname is the repository name with the `ragenta-` prefix
+dropped: `ragenta-backend` is served at `backend`. Staging adds a `staging-` prefix, production
+uses the bare name, and the marketing site is the **root of its environment** rather than a named
+host — `staging.ragenta.cloud` on staging, the apex `ragenta.cloud` in production.
 
 | Repository | Staging | Production |
 | --- | --- | --- |
-| `ragenta-landing-page` | `staging-ragenta-landing-page.ragenta.cloud` | `ragenta.cloud` (+ `www` redirect) |
-| `ragenta-backend` (api) | `staging-ragenta-backend.ragenta.cloud` | `ragenta-backend.ragenta.cloud` |
-| `ragenta-content-backend` | `staging-ragenta-content-backend.ragenta.cloud` | `ragenta-content-backend.ragenta.cloud` |
-| `ragenta-frontend` | `staging-ragenta-frontend.ragenta.cloud` | `ragenta-frontend.ragenta.cloud` |
-| `ragenta-admin-frontend` | `staging-ragenta-admin-frontend.ragenta.cloud` | `ragenta-admin-frontend.ragenta.cloud` |
+| `ragenta-landing-page` | `staging.ragenta.cloud` | `ragenta.cloud` (+ `www` redirect) |
+| `ragenta-backend` (api) | `staging-backend.ragenta.cloud` | `backend.ragenta.cloud` |
+| `ragenta-content-backend` | `staging-content-backend.ragenta.cloud` | `content-backend.ragenta.cloud` |
+| `ragenta-frontend` | `staging-frontend.ragenta.cloud` | `frontend.ragenta.cloud` |
+| `ragenta-admin-frontend` | `staging-admin-frontend.ragenta.cloud` | `admin-frontend.ragenta.cloud` |
 
 Each environment still gets its own machine and its own secrets (ADR-010), but they now share one
 registrable domain, and that costs two things. `AUTH_COOKIE_DOMAIN` stays **empty** in both — the
