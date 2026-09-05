@@ -32,6 +32,7 @@ sandbox. Treat both keys as privileged.
 │                                staging.ragenta.cloud                 -> 127.0.0.1:8081, TLS
 │                                staging-content-backend.ragenta.cloud -> 127.0.0.1:8084, TLS
 │                                staging-admin-frontend.ragenta.cloud  -> 127.0.0.1:8083, TLS
+│                                staging-frontend.ragenta.cloud        -> 127.0.0.1:8082, TLS
 └── ragenta-default-deny         everything else                       -> 444
 /etc/letsencrypt/                certificates; certbot owns this, nothing else
 └── renewal-hooks/deploy/        reload-nginx.sh — without it a renewed
@@ -45,7 +46,7 @@ reserved in `environments/staging/docker-compose.yml` as each app lands:
 ```text
 127.0.0.1:8080   api          ragenta-backend, start:api
 127.0.0.1:8081   landing      ragenta-landing-page
-127.0.0.1:8082   app          reserved, ragenta-frontend
+127.0.0.1:8082   app          ragenta-frontend
 127.0.0.1:8083   admin        ragenta-admin-frontend
 127.0.0.1:8084   content      ragenta-content-backend
 (no port)        worker       a BullMQ consumer — nothing listens

@@ -240,6 +240,51 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
+  # The customer application — chat, knowledge bases, projects, billing. Like
+  # admin it stores nothing itself and holds no credential: every browser call
+  # goes to its own /api/* proxy, which replays the caller's session cookie
+  # upstream. That is also why it gets no env_file — it needs three URLs and not
+  # one secret from the rest of this file.
+  app:
+    image: ghcr.io/trantuananh-17/ragenta-frontend:${IMAGE_TAG_APP_FRONTEND}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      # The image already defaults to 8082, but .env sets PORT=8080 for the API
+      # and Compose would pass that through if this were ever given an env_file.
+      PORT: 8082
+      HOSTNAME: 0.0.0.0
+      # The PUBLIC api URL, not http://api:8080 — Better Auth builds and
+      # validates against its own baseURL, and reaching it under a different
+      # host works until it silently does not.
+      RAGENTA_API_URL: ${API_BASE_URL}
+      # This app's own public origin. Better Auth builds the Google OAuth
+      # callback and the password-reset link from it, so it has to be the host
+      # the browser is actually on.
+      APP_BASE_URL: ${APP_BASE_URL}
+      # Link target only: pricing and the legal pages live on the marketing site.
+      SITE_BASE_URL: ${SITE_URL}
+    ports:
+      - "${APP_BIND}:${APP_PORT}:8082"
+    # No depends_on, for the same reason as admin: it needs api at request time,
+    # not at boot, and gating startup on it would turn "the backend is
+    # unhealthy" into "the app that would have shown you why never starts".
+    healthcheck:
+      # node's global fetch — the runtime image has no curl or wget.
+      # /api/health is answered by the app's own proxy and reaches no backend,
+      # so this reports the container, not the platform.
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8082/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
   postgres:
     image: postgres:17-alpine
     restart: unless-stopped
