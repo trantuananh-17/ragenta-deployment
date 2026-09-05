@@ -27,6 +27,18 @@ services:
       # how a staging stack ends up pointed at another environment's database.
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      # Vector store and object storage, addressed by service name on this
+      # project's network for the same reason as the two above: they are this
+      # stack's own, and an operator editing a host by hand is how a staging
+      # deployment ends up indexing into another environment's collections.
+      QDRANT_URL: http://qdrant:6333
+      QDRANT_API_KEY: ${QDRANT_API_KEY}
+      STORAGE_ENDPOINT: minio
+      STORAGE_PORT: 9000
+      STORAGE_USE_SSL: "false"
+      STORAGE_ACCESS_KEY: ${MINIO_ROOT_USER}
+      STORAGE_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      STORAGE_BUCKET: ragenta-documents
     ports:
       - "${API_BIND}:${API_PORT}:8080"
     depends_on:
@@ -61,6 +73,18 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      # Vector store and object storage, addressed by service name on this
+      # project's network for the same reason as the two above: they are this
+      # stack's own, and an operator editing a host by hand is how a staging
+      # deployment ends up indexing into another environment's collections.
+      QDRANT_URL: http://qdrant:6333
+      QDRANT_API_KEY: ${QDRANT_API_KEY}
+      STORAGE_ENDPOINT: minio
+      STORAGE_PORT: 9000
+      STORAGE_USE_SSL: "false"
+      STORAGE_ACCESS_KEY: ${MINIO_ROOT_USER}
+      STORAGE_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      STORAGE_BUCKET: ragenta-documents
     depends_on:
       postgres:
         condition: service_healthy
